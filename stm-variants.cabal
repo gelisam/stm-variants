@@ -6,5 +6,6 @@ library
   exposed-modules:  STM.Variants.DB
   default-language: GHC2021
   build-depends:    base
+                  , leveldb-haskell
   hs-source-dirs:   src
   ghc-options: -W -Wall
