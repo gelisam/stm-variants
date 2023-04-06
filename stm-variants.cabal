@@ -3,7 +3,7 @@ name:               stm-variants
 version:            0.1.0.0
 
 library
-  exposed-modules:  STM.Variants.DB
+  exposed-modules:  STM.Variants.LevelDB
   default-language: GHC2021
   build-depends:    base
                   , aeson

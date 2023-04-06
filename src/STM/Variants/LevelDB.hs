@@ -2,9 +2,15 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE UndecidableInstances #-}
 
--- | A database with an API which closely matches the "Control.Concurrent.STM"
--- API.
-module STM.Variants.DB where
+-- | An STM-style API for LevelDB. Thus, like LevelDB, we offer persistence and
+-- transactional semantics but only single-process concurrency, not
+-- multi-process concurrency.
+--
+-- For performance, LevelDB only persists to the disk periodically and at the
+-- end of the session. Thus, in the event of a power failure, the last few
+-- transactions might be lost, but we won't see a partially-executed
+-- transaction.
+module STM.Variants.LevelDB where
 
 import Control.Monad.Trans.Resource (ResourceT, runResourceT)
 import Data.ByteString (ByteString)
