@@ -4,10 +4,12 @@ version:            0.1.0.0
 
 library
   exposed-modules:  STM.Variants.LevelDB
+                  , STM.Variants.LevelDB.TypeableMap
   default-language: GHC2021
   build-depends:    base
                   , aeson
                   , bytestring
+                  , containers
                   , leveldb-haskell
                   , resourcet
   hs-source-dirs:   src
