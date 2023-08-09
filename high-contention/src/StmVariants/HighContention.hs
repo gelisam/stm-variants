@@ -6,7 +6,7 @@
 module StmVariants.HighContention where
 
 import Control.Concurrent.MVar
-import Control.Exception (Exception, evaluate)
+import Control.Exception (Exception, evaluate, try)
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Reader
 import Data.IORef
@@ -83,8 +83,21 @@ data OrderedLockerState = OrderedLockerState
 runOrderedLocker
   :: OrderedLocker a
   -> IO (Either (Set LockOrder) a)
-runOrderedLocker
-  = undefined
+runOrderedLocker body = do
+  ref <- newIORef OrderedLockerState
+    { orderedLockerState_highest = LockOrder (-1)
+    , orderedLockerState_locks = Set.empty
+    }
+  resultOrInvalidLockOrder
+    <- try
+     $ flip runReaderT ref
+     $ unOrderedLocker body
+  case resultOrInvalidLockOrder of
+    Right result -> do
+      pure $ Right result
+    Left (InvalidLockOrder {}) -> do
+      OrderedLockerState {orderedLockerState_locks} <- readIORef ref
+      pure $ Left orderedLockerState_locks
 
 -- | Validate that the transaction is allowed to acquire the lock with the given
 -- 'LockOrder', throwing an 'InvalidLockOrder' exception otherwise. Use this
