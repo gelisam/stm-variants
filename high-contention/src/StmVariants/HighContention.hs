@@ -6,7 +6,7 @@
 module StmVariants.HighContention where
 
 import Control.Concurrent.MVar
-import Control.Exception (Exception, evaluate, try)
+import Control.Exception (Exception, evaluate, throwIO, try)
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Reader
 import Data.IORef
@@ -43,9 +43,9 @@ newLockOrderIO = do
 -- exception so that the transaction can be retried with the correct order.
 data InvalidLockOrder = InvalidLockOrder
   { invalidLockOrder_alreadyLocked
-      :: LockOrder
+      :: !LockOrder
   , invalidLockOrder_tryingToLock
-      :: LockOrder
+      :: !LockOrder
   }
 
 -- The convention for exceptions is for 'show' to return the human-readable
@@ -72,9 +72,9 @@ newtype OrderedLocker a = OrderedLocker
   deriving (Functor, Applicative, Monad, MonadIO)
 data OrderedLockerState = OrderedLockerState
   { orderedLockerState_highest
-      :: LockOrder
+      :: !LockOrder
   , orderedLockerState_locks
-      :: Set LockOrder
+      :: !(Set LockOrder)
   }
 
 -- | Succeeds if the computation acquires all the locks in order. Otherwise,
@@ -96,8 +96,8 @@ runOrderedLocker body = do
     Right result -> do
       pure $ Right result
     Left (InvalidLockOrder {}) -> do
-      OrderedLockerState {orderedLockerState_locks} <- readIORef ref
-      pure $ Left orderedLockerState_locks
+      OrderedLockerState _ interestingLocks <- readIORef ref
+      pure $ Left interestingLocks
 
 -- | Validate that the transaction is allowed to acquire the lock with the given
 -- 'LockOrder', throwing an 'InvalidLockOrder' exception otherwise. Use this
@@ -115,8 +115,25 @@ prepareToAcquireLock lockOrder = do
 prepareToAcquireLocks
   :: Set LockOrder
   -> OrderedLocker ()
-prepareToAcquireLocks
-  = undefined
+prepareToAcquireLocks newLocks = OrderedLocker $ do
+  ref <- ask
+  OrderedLockerState highest oldLocks <- liftIO $ readIORef ref
+
+  -- Remember the locks we're interested in, so that we can acquire them in the
+  -- right order if the transaction aborts.
+  let allLocks = Set.union oldLocks newLocks
+  liftIO $ writeIORef ref $! OrderedLockerState highest allLocks
+
+  let next = Set.findMin newLocks
+  let newHighest = Set.findMax newLocks
+  if next < highest
+    then do
+      liftIO $ throwIO $ InvalidLockOrder
+        { invalidLockOrder_alreadyLocked = highest
+        , invalidLockOrder_tryingToLock = next
+        }
+    else do
+      liftIO $ writeIORef ref $! OrderedLockerState newHighest allLocks
 
 -- | A variant of 'prepareToAcquireLock' which cannot fail. Use this before
 -- using a function like 'tryReadMVar' which reads but does not acquire a lock.
