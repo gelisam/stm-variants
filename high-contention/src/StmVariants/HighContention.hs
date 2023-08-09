@@ -140,8 +140,11 @@ prepareToAcquireLocks newLocks = OrderedLocker $ do
 showInterestInLock
   :: LockOrder
   -> OrderedLocker ()
-showInterestInLock
-  = undefined
+showInterestInLock lockOrder = OrderedLocker $ do
+  ref <- ask
+  OrderedLockerState highest oldLocks <- liftIO $ readIORef ref
+  let allLocks = Set.insert lockOrder oldLocks
+  liftIO $ writeIORef ref $! OrderedLockerState highest allLocks
 
 
 data TVar a = TVar
