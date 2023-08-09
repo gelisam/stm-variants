@@ -3,7 +3,7 @@
 -- with stm when you discover that contention is an issue.
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-module Toy where
+module StmVariants.HighContention where
 
 import Control.Concurrent.MVar
 import Control.Exception (Exception, evaluate)

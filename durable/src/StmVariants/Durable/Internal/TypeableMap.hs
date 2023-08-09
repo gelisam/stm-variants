@@ -1,6 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
-module STM.Variants.LevelDB.TypeableMap where
+module StmVariants.Durable.Internal.TypeableMap where
 
 import Data.Map (Map)
 import Data.Proxy (Proxy(Proxy))

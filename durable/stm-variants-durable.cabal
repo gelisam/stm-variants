@@ -1,10 +1,10 @@
 cabal-version:      2.4
-name:               stm-variants
+name:               stm-variants-durable
 version:            0.1.0.0
 
 library
-  exposed-modules:  STM.Variants.LevelDB
-                  , STM.Variants.LevelDB.TypeableMap
+  exposed-modules:  StmVariants.Durable.LevelDB
+                  , StmVariants.Durable.Internal.TypeableMap
   default-language: GHC2021
   build-depends:    base
                   , aeson
@@ -12,5 +12,6 @@ library
                   , containers
                   , leveldb-haskell
                   , resourcet
+                  , transformers
   hs-source-dirs:   src
   ghc-options: -W -Wall

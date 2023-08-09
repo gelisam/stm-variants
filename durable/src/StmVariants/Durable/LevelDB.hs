@@ -10,22 +10,53 @@
 -- end of the session. Thus, in the event of a power failure, the last few
 -- transactions might be lost, but we won't see a partially-executed
 -- transaction.
-module STM.Variants.LevelDB where
+module StmVariants.Durable.LevelDB where
 
 import Control.Monad.Trans.Resource (ResourceT, runResourceT)
+import Control.Monad.Trans.State (State)
 import Data.ByteString (ByteString)
+import Data.Map (Map)
+import Data.Typeable (TypeRep, Typeable)
+import Data.Unique (Unique)
 import Database.LevelDB (DB)
+import GHC.Exts (Any)
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy as Lazy
+import qualified Data.Map as Map
 import qualified Database.LevelDB as LevelDB
+
+import StmVariants.Durable.Internal.TypeableMap
 
 
 -- | A 'TVar' is a mutable variable which can be read and written to.
 data TVar a = TVar DB a
 
 
--- | 'Serializable' is a synonym for 'Aeson.FromJSON' and 'Aeson.ToJSON'.
-type Serializable a = (Aeson.FromJSON a, Aeson.ToJSON a)
+-- | The effect of serializing references.
+--
+-- The 'Unique' identifies the reference, but only during this session. The
+-- 'ByteString' argument is the serialized contents, which overrides previous
+-- contents.
+class MonadSerialize m where
+  serializeRef :: Unique -> ByteString -> m ByteString
+
+-- | The effect of deserializing references.
+--
+-- The 'Unique' identifies the reference, but only during this session. The
+-- 'ByteString' is the serialized contents.
+class MonadDeserialize m where
+  deserializeRef :: ByteString -> m (Unique, ByteString)
+
+
+-- | In addition to seralizing values, 'Serializable' also provides a way to
+-- serialize references such as 'IORef's and 'TVar's.
+class Serializable a where
+  serialize
+    :: MonadSerialize m
+    => a -> m ByteString
+  deserialize
+    :: MonadDeserialize m
+    => ByteString -> m a
 
 -- | Guarantees that writes are complete by the time it returns.
 withRootTVar
