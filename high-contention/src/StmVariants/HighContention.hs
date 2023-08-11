@@ -1,8 +1,9 @@
 -- | A drop-in replacement for the stm API which performs better under high
 -- contention, for the common case in which you've already written a lot of code
 -- with stm when you discover that contention is an issue.
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE StrictData #-}
 module StmVariants.HighContention where
 
 import Control.Concurrent.MVar
@@ -48,9 +49,9 @@ newLockOrderIO = do
 -- exception so that the transaction can be retried with the correct order.
 data InvalidLockOrder = InvalidLockOrder
   { invalidLockOrder_alreadyLocked
-      :: !LockOrder
+      :: LockOrder
   , invalidLockOrder_tryingToLock
-      :: !LockOrder
+      :: LockOrder
   }
 
 -- The convention for exceptions is for 'show' to return the human-readable
@@ -77,9 +78,9 @@ newtype OrderedLocker a = OrderedLocker
   deriving (Functor, Applicative, Monad, MonadIO)
 data OrderedLockerState = OrderedLockerState
   { orderedLockerState_highest
-      :: !(Maybe LockOrder)
+      :: Maybe LockOrder
   , orderedLockerState_locks
-      :: !(Set LockOrder)
+      :: Set LockOrder
   }
 
 -- | Succeeds if the computation acquires all the locks in order. Otherwise,
