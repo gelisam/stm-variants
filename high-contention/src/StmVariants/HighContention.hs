@@ -77,7 +77,7 @@ newtype OrderedLocker a = OrderedLocker
   deriving (Functor, Applicative, Monad, MonadIO)
 data OrderedLockerState = OrderedLockerState
   { orderedLockerState_highest
-      :: !LockOrder
+      :: !(Maybe LockOrder)
   , orderedLockerState_locks
       :: !(Set LockOrder)
   }
@@ -90,7 +90,7 @@ runOrderedLocker
   -> IO (Either (Set LockOrder) a)
 runOrderedLocker body = do
   ref <- newIORef OrderedLockerState
-    { orderedLockerState_highest = LockOrder (-1)
+    { orderedLockerState_highest = Nothing
     , orderedLockerState_locks = Set.empty
     }
   resultOrInvalidLockOrder
@@ -122,23 +122,23 @@ prepareToAcquireLocks
   -> OrderedLocker ()
 prepareToAcquireLocks newLocks = OrderedLocker $ do
   ref <- ask
-  OrderedLockerState highest oldLocks <- liftIO $ readIORef ref
+  OrderedLockerState maybeHighest oldLocks <- liftIO $ readIORef ref
 
   -- Remember the locks we're interested in, so that we can acquire them in the
   -- right order if the transaction aborts.
   let allLocks = Set.union oldLocks newLocks
-  liftIO $ writeIORef ref $! OrderedLockerState highest allLocks
+  liftIO $ writeIORef ref $! OrderedLockerState maybeHighest allLocks
 
   let next = Set.findMin newLocks
   let newHighest = Set.findMax newLocks
-  if next < highest
-    then do
+  case maybeHighest of
+    Just highest | next < highest -> do
       liftIO $ throwIO $ InvalidLockOrder
         { invalidLockOrder_alreadyLocked = highest
         , invalidLockOrder_tryingToLock = next
         }
-    else do
-      liftIO $ writeIORef ref $! OrderedLockerState newHighest allLocks
+    _ -> do
+      liftIO $ writeIORef ref $! OrderedLockerState (Just newHighest) allLocks
 
 -- | A variant of 'prepareToAcquireLock' which cannot fail. Use this before
 -- using a function like 'tryReadMVar' which reads but does not acquire a lock.
