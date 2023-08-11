@@ -23,19 +23,24 @@ import System.IO.Unsafe (unsafePerformIO)
 -- with a lower 'LockOrder' before acquiring locks with a higher number.
 newtype LockOrder = LockOrder
   { unLockOrder :: Int
-  } deriving (Eq, Ord, Show)
+  } deriving (Enum, Eq, Ord, Show)
+
+minLockOrder
+  :: LockOrder
+minLockOrder
+  = LockOrder 0
 
 {-# NOINLINE globalNextLockOrder #-}
 globalNextLockOrder
   :: MVar LockOrder
 globalNextLockOrder = unsafePerformIO $ do
-  newMVar (LockOrder 0)
+  newMVar minLockOrder
 
 newLockOrderIO
   :: IO LockOrder
 newLockOrderIO = do
-  modifyMVar globalNextLockOrder $ \this@(LockOrder n) -> do
-    next <- evaluate $ LockOrder (n + 1)
+  modifyMVar globalNextLockOrder $ \this -> do
+    next <- evaluate $ succ this
     pure (next, this)
 
 
