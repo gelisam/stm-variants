@@ -11,6 +11,8 @@ import Control.Exception (Exception, evaluate, throwIO, try)
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Reader
 import Data.IORef
+import Data.Map (Map)
+--import qualified Data.Map (Map)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import System.IO.Unsafe (unsafePerformIO)
@@ -153,6 +155,16 @@ showInterestInLock lockOrder = OrderedLocker $ do
   liftIO $ writeIORef ref $! OrderedLockerState highest allLocks
 
 
+-- | Increments each time the value of a 'TVar' changes.
+newtype Version = Version
+  { unVersion :: Int
+  } deriving (Enum, Eq, Show)
+
+initialVersion
+  :: Version
+initialVersion
+  = Version 0
+
 data TVar a = TVar
   { -- | Holds the current value of the TVar.
     --
@@ -161,16 +173,38 @@ data TVar a = TVar
     -- In pessimistic mode, the value is locked until the transaction succeeds
     -- or fails.
     tvar_underlyingMVar
-      :: MVar a
+      :: MVar (Version, a)
   , -- | In pessimistic mode, to avoid deadlocks, it is important to acquire locks
-    -- with a lower 'tvar_ordering' number before acquiring locks with a higher number.
+    -- with a lower 'tvar_lockOrder' before acquiring locks with a higher number.
     tvar_lockOrder
       :: LockOrder
   }
 
 newtype STM a = STM
-  { unSTM :: OrderedLocker a
+  { unSTM :: ReaderT (IORef STMState) OrderedLocker a
   }
+  deriving (Functor, Applicative, Monad, MonadIO)
+data SomeTVar where
+  SomeTVar
+    :: forall a
+     . { someTVar_underlyingTVar
+           :: TVar a
+       , someTVar_firstReadVersion
+           :: Maybe Version
+       , someTVar_lastWrittenValue
+           :: Maybe a
+       }
+    -> SomeTVar
+data STMState = STMState
+  { stmState_accessedTVars
+      :: Map LockOrder SomeTVar
+  }
+
+runSTM
+  :: STM a
+  -> IO a
+runSTM
+  = undefined
 
 atomically
   :: STM a
